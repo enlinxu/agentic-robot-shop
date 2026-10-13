@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agentic-robot-shop"
+version = "0.1.0"
+description = "Shopping agents, MCP tools and a raw-observability AI SRE for Robot Shop"
+readme = "README.md"
+requires-python = ">=3.13"
+license = "Apache-2.0"
+dynamic = ["dependencies"]
+
+[project.urls]
+Repository = "https://github.com/enlinxu/agentic-robot-shop"
+Issues = "https://github.com/enlinxu/agentic-robot-shop/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}
+
+[tool.setuptools.package-data]
+agentic_robot_shop = ["resources/*.txt", "resources/*.html"]

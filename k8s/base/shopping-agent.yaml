@@ -74,7 +74,7 @@ spec:
             memory: 768Mi
         command:
         - uvicorn
-        - agent:app
+        - agentic_robot_shop.agent:app
         - --host
         - 0.0.0.0
         - --port

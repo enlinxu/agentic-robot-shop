@@ -51,7 +51,7 @@ kubectl --context YOUR_CONTEXT apply -k k8s
 ```
 
 The [from-scratch manifest walkthrough](k8s/README.md) covers startup, optional
-telemetry and paid-mode overlays. `deploy.py` below is an alternative configurable
+telemetry and paid-mode overlays. `scripts/deploy.py` below is an alternative configurable
 manifest generator/installer.
 
 Requirements: a Linux Kubernetes cluster, `kubectl`, Python 3.10+, Docker for image
@@ -67,7 +67,7 @@ git clone https://github.com/enlinxu/agentic-robot-shop.git
 cd agentic-robot-shop
 
 # Replace this with a registry path you can push to and your nodes can pull from.
-python3 build.py --registry registry.example.com/your-team/robot-shop --tag v0.1.0 --push
+python3 scripts/build.py --registry registry.example.com/your-team/robot-shop --tag v0.1.0 --push
 ```
 
 This builds native-architecture images. For mixed AMD64/ARM64 clusters, use the
@@ -79,7 +79,7 @@ or supply an existing namespace-local pull Secret with `--image-pull-secret`.
 ### 2. Install the provider-free application
 
 ```sh
-python3 deploy.py install --context YOUR_CONTEXT \
+python3 scripts/deploy.py install --context YOUR_CONTEXT \
   --registry registry.example.com/your-team/robot-shop --tag v0.1.0
 
 kubectl --context YOUR_CONTEXT -n agentic-robot-shop wait --for=condition=Available deployment --all --timeout=300s
@@ -99,7 +99,7 @@ Use existing OTLP/Prometheus/Tempo endpoints, or install the included optional
 namespace and tag plus your endpoints:
 
 ```sh
-python3 deploy.py install --context YOUR_CONTEXT \
+python3 scripts/deploy.py install --context YOUR_CONTEXT \
   --registry registry.example.com/your-team/robot-shop --tag v0.1.0 \
   --otel-endpoint http://YOUR_COLLECTOR:4317 \
   --trace-store-url http://YOUR_TEMPO:3200 \
@@ -114,9 +114,9 @@ OTLP traces can independently be exported to any compatible backend.
 
 ```sh
 # Namespace must exist. Reads the key from a hidden prompt, not command arguments.
-python3 provider_secret.py --context YOUR_CONTEXT
+python3 scripts/provider_secret.py --context YOUR_CONTEXT
 
-python3 deploy.py install --context YOUR_CONTEXT \
+python3 scripts/deploy.py install --context YOUR_CONTEXT \
   --registry registry.example.com/your-team/robot-shop --tag v0.1.0 --paid
 ```
 
@@ -128,7 +128,7 @@ users before exposing paid endpoints; the supplied UI has no login boundary.
 ## Customize or review before installing
 
 ```sh
-python3 deploy.py render --namespace shopping \
+python3 scripts/deploy.py render --namespace shopping \
   --registry registry.example.com/team/shop --tag my-tag \
   --storage-class fast --cluster-name staging \
   --host shop.example.com --ingress-class nginx > rendered.json
@@ -155,9 +155,9 @@ shopping journey per minute; the CronJob is suspended by default.
 ```sh
 export KUBE_CONTEXT=YOUR_CONTEXT
 export SHOP_NAMESPACE=agentic-robot-shop
-python3 manage.py schema_mismatch
+python3 scripts/manage.py schema_mismatch
 # Run shopping from /lab and inspect the native rejection.
-python3 manage.py healthy
+python3 scripts/manage.py healthy
 ```
 
 Fault experiments mutate only this application's resources and restore controls
@@ -165,19 +165,46 @@ in `finally`. Run them sequentially in a dedicated demo namespace. A hard proces
 kill cannot execute restoration; inspect and restore state before another run.
 Do not run the fault harness against a production store.
 
+## Repository layout
+
+```text
+src/agentic_robot_shop/  Python shopping, MCP, workload, telemetry and SRE services
+  resources/             Packaged prompts and SRE page
+scripts/                 Build/deploy helpers and operator-run experiments
+tests/                   Python SDK/unit tests and JavaScript trace tests
+vendor/robot-shop/       Original storefront, Node microservices and MongoDB seed
+k8s/                     Kubernetes manifests and overlays
+observability/           Optional collector/Tempo/monitoring configuration
+docs/                    Setup, telemetry, cost and failure walkthroughs
+assets/                  Illustrative screenshots
+pyproject.toml           Python package metadata
+```
+
+Robot Shop itself is in [vendor/robot-shop](vendor/robot-shop); the Python package
+adds its agentic functionality and the separate AI SRE. Operator commands use
+`python3 scripts/<tool>.py`. Generated experiment results go to the ignored
+`evidence/` directory.
+
 ## Development and validation
 
 ```sh
 docker build -t agentic-robot-shop-test .
-docker run --rm -v "$PWD:/app:ro" agentic-robot-shop-test \
-  python -m unittest discover -s /app -p 'test_*.py'
-node test_trace_view.js
+docker run --rm -e PYTHONPATH=/app/src:/app/scripts -v "$PWD:/app:ro" agentic-robot-shop-test \
+  python -m unittest discover -s /app/tests -p 'test_*.py'
+node tests/test_trace_view.js
 ```
 
 Tests cover real SDK schema rejection, synthetic decision policies/provider-call
 prohibition, trace rendering/ancestry, restoration, budgets, citations and portable
 manifests. Historical screenshots illustrate real executions, not a guarantee
 that a newly configured cluster has working telemetry or the same AI response.
+
+For local editable installation and contribution guidance, see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+Rebuild the agent image before applying these manifests to an older installation;
+the services now use qualified `agentic_robot_shop.<module>:app` entrypoints. Use
+a fresh image tag when upgrading and update the Kustomize image mappings so nodes
+do not reuse an older cached image.
 
 ## Source and license
 

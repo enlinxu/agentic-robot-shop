@@ -11,10 +11,15 @@ jobs:
         with:
           node-version: '22'
       - run: docker build -t robot-shop-tests .
-      - run: docker run --rm -v "$PWD:/app:ro" robot-shop-tests python -m unittest discover -s /app -p 'test_*.py'
-      - run: node test_trace_view.js
-      - run: python3 deploy.py render --namespace portable-check --registry example.com/test > rendered.json
-      - run: python3 observability/render.py --namespace portable-check > rendered-observability.json
+      - run: docker run --rm -e PYTHONPATH=/app/src:/app/scripts -v "$PWD:/app:ro" robot-shop-tests python -m unittest discover -s /app/tests -p 'test_*.py'
+      - name: Verify installed package resources outside the checkout
+        run: >-
+          docker run --rm --workdir /tmp robot-shop-tests python -c
+          "from importlib.resources import files; r=files('agentic_robot_shop').joinpath('resources');
+          assert all(r.joinpath(n).read_text() for n in ['instructions.txt','sre_instructions.txt','sre.html'])"
+      - run: node tests/test_trace_view.js
+      - run: python3 scripts/deploy.py render --namespace portable-check --registry example.com/test > rendered.json
+      - run: python3 scripts/render_observability.py --namespace portable-check > rendered-observability.json
       - run: kubectl kustomize k8s > /tmp/base.yaml
       - run: kubectl kustomize k8s/overlays/paid > /tmp/paid.yaml
       - run: kubectl kustomize k8s/observability > /tmp/observability.yaml

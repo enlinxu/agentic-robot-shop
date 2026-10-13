@@ -9,3 +9,10 @@ observability
 evidence
 *.json
 *.md
+!README.md
+scripts
+tests
+k8s
+build
+dist
+*.egg-info

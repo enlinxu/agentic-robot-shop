@@ -16,7 +16,7 @@ The manifests do not imply those registry images have already been published.
 git clone https://github.com/enlinxu/agentic-robot-shop.git
 cd agentic-robot-shop
 
-python3 build.py --registry YOUR_REGISTRY/robot-shop --tag v0.1.0 --push
+python3 scripts/build.py --registry YOUR_REGISTRY/robot-shop --tag v0.1.0 --push
 ```
 
 Edit the six `newName` entries in **`k8s/base/kustomization.yaml`** to use your
@@ -37,7 +37,7 @@ kubectl --context YOUR_CONTEXT -n agentic-robot-shop port-forward svc/web 8080:8
 Open http://localhost:8080 for Robot Shop; `/lab` runs real shopping with free
 synthetic decisions. `/assistant` and SRE AI mode require explicit paid enablement.
 Port-forwarding needs no Ingress controller. The application namespace is
-`agentic-robot-shop`; for another namespace use `deploy.py render --namespace ...`
+`agentic-robot-shop`; for another namespace use `scripts/deploy.py render --namespace ...`
 so runtime telemetry identity and SRE query filters change with it, rather than
 only rewriting Kubernetes metadata.
 
@@ -76,7 +76,7 @@ in their Deployment YAML.
 After the namespace exists:
 
 ```sh
-python3 provider_secret.py --context YOUR_CONTEXT
+python3 scripts/provider_secret.py --context YOUR_CONTEXT
 kubectl --context YOUR_CONTEXT apply -k k8s/overlays/paid
 ```
 

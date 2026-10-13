@@ -74,7 +74,7 @@ spec:
             memory: 768Mi
         command:
         - uvicorn
-        - sre_service:app
+        - agentic_robot_shop.sre_service:app
         - --host
         - 0.0.0.0
         - --port

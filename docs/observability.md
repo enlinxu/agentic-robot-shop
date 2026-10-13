@@ -12,7 +12,7 @@ monitoring or cannot grant those permissions.
 
 ```sh
 # Omit --storage-class to use your default provisioner.
-python3 observability/render.py --namespace agentic-robot-shop > rendered-observability.json
+python3 scripts/render_observability.py --namespace agentic-robot-shop > rendered-observability.json
 kubectl --context YOUR_CONTEXT apply -f rendered-observability.json
 
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
@@ -32,7 +32,7 @@ and add Tempo as a Grafana data source. The namespace-local endpoints are:
 | Prometheus | `http://monitoring-prometheus:9090` |
 | Grafana | `grafana:80` |
 
-Pass `--prometheus-url http://monitoring-prometheus:9090` to `deploy.py install`
+Pass `--prometheus-url http://monitoring-prometheus:9090` to `scripts/deploy.py install`
 alongside your registry/tag. Verify actual Services with `kubectl get svc` if your
 chart naming differs. Forward Grafana with `kubectl ... port-forward svc/grafana
 3000:80`, obtain its generated administrator password using the chart's release
