@@ -1,0 +1,18 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sre-baseline
+  namespace: agentic-robot-shop
+spec:
+  template:
+    spec:
+      containers:
+      - name: sre-baseline
+        env:
+        - name: PAID_MODEL_ENABLED
+          value: 'true'
+        - name: GEMINI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: agent-provider
+              key: GEMINI_API_KEY

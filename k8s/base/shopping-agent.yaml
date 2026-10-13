@@ -1,0 +1,107 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: shopping-agent
+  namespace: agentic-robot-shop
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: shopping-agent
+  template:
+    metadata:
+      labels:
+        app: shopping-agent
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - name: shopping-agent
+        image: ghcr.io/enlinxu/agentic-robot-shop/agent:v0.1.0
+        ports:
+        - containerPort: 8080
+        env:
+        - name: OTEL_SERVICE_NAME
+          value: shopping-agent
+        - name: SHOP_NAMESPACE
+          value: agentic-robot-shop
+        - name: CLUSTER_NAME
+          value: demo
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: http://otel-collector:4317
+        - name: OTEL_EXPORTER_OTLP_PROTOCOL
+          value: grpc
+        - name: OTEL_TRACES_EXPORTER
+          value: otlp
+        - name: OTEL_METRICS_EXPORTER
+          value: none
+        - name: OTEL_LOGS_EXPORTER
+          value: none
+        - name: OTEL_NODE_ENABLED_INSTRUMENTATIONS
+          value: http,express,mongodb,redis,redis-4
+        - name: PYDANTIC_AI_NO_BANNER
+          value: '1'
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_UID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.uid
+        - name: TRACE_STORE_URL
+          value: http://tempo:3200
+        - name: PROMETHEUS_URL
+          value: http://prometheus:9090
+        - name: STATE_DIR
+          value: /state
+        - name: PAID_MODEL_ENABLED
+          value: 'false'
+        - name: AGENT_MODEL
+          value: google:gemini-2.5-flash-lite
+        - name: SRE_MODEL
+          value: google:gemini-2.5-flash-lite
+        - name: DAILY_TURN_LIMIT
+          value: '20'
+        - name: SRE_DAILY_LIMIT
+          value: '4'
+        resources:
+          requests:
+            cpu: 20m
+            memory: 128Mi
+          limits:
+            memory: 768Mi
+        command:
+        - uvicorn
+        - agent:app
+        - --host
+        - 0.0.0.0
+        - --port
+        - '8080'
+        - --no-access-log
+        volumeMounts:
+        - name: state
+          mountPath: /state
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 5
+      volumes:
+      - name: state
+        persistentVolumeClaim:
+          claimName: shopping-agent
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: shopping-agent
+  namespace: agentic-robot-shop
+spec:
+  selector:
+    app: shopping-agent
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080

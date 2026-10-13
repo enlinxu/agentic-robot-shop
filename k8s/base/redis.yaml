@@ -1,0 +1,90 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: agentic-robot-shop
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - name: redis
+        image: redis:7.4-alpine
+        ports:
+        - containerPort: 6379
+        env:
+        - name: OTEL_SERVICE_NAME
+          value: redis
+        - name: SHOP_NAMESPACE
+          value: agentic-robot-shop
+        - name: CLUSTER_NAME
+          value: demo
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: http://otel-collector:4317
+        - name: OTEL_EXPORTER_OTLP_PROTOCOL
+          value: grpc
+        - name: OTEL_TRACES_EXPORTER
+          value: otlp
+        - name: OTEL_METRICS_EXPORTER
+          value: none
+        - name: OTEL_LOGS_EXPORTER
+          value: none
+        - name: OTEL_NODE_ENABLED_INSTRUMENTATIONS
+          value: http,express,mongodb,redis,redis-4
+        - name: PYDANTIC_AI_NO_BANNER
+          value: '1'
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_UID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.uid
+        - name: TRACE_STORE_URL
+          value: http://tempo:3200
+        - name: PROMETHEUS_URL
+          value: http://prometheus:9090
+        resources:
+          requests:
+            cpu: 20m
+            memory: 128Mi
+          limits:
+            memory: 768Mi
+        volumeMounts:
+        - name: state
+          mountPath: /data
+        args:
+        - redis-server
+        - --appendonly
+        - 'yes'
+        readinessProbe:
+          tcpSocket:
+            port: 6379
+          initialDelaySeconds: 10
+      volumes:
+      - name: state
+        persistentVolumeClaim:
+          claimName: redis
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: agentic-robot-shop
+spec:
+  selector:
+    app: redis
+  ports:
+  - name: tcp
+    port: 6379
+    targetPort: 6379

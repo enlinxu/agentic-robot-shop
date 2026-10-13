@@ -42,6 +42,18 @@ flowchart LR
 
 ## Run on Kubernetes
 
+**Checked-in Kubernetes YAML is in [k8s/](k8s/README.md).** It includes all Robot
+Shop services, databases, agents, storage and RBAC. Build the images, update the
+registry mappings in `k8s/base/kustomization.yaml`, then install with:
+
+```sh
+kubectl --context YOUR_CONTEXT apply -k k8s
+```
+
+The [from-scratch manifest walkthrough](k8s/README.md) covers startup, optional
+telemetry and paid-mode overlays. `deploy.py` below is an alternative configurable
+manifest generator/installer.
+
 Requirements: a Linux Kubernetes cluster, `kubectl`, Python 3.10+, Docker for image
 builds, a registry reachable by its nodes, and a default dynamic StorageClass (or
 specify `--storage-class`). Cluster policy must allow the supplied demo containers

@@ -1,0 +1,184 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tempo
+  namespace: agentic-robot-shop
+data:
+  tempo.yaml: "# Pinned Tempo 3.0 single binary; demonstration trace retention only.\n\
+    stream_over_http_enabled: true\nserver:\n  http_listen_port: 3200\ndistributor:\n\
+    \  receivers:\n    otlp:\n      protocols:\n        grpc:\n          endpoint:\
+    \ 0.0.0.0:4317\n        http:\n          endpoint: 0.0.0.0:4318\nstorage:\n  trace:\n\
+    \    backend: local\n    wal:\n      path: /data/tempo/wal\n    local:\n     \
+    \ path: /data/tempo/blocks\nbackend_worker:\n  compaction:\n    block_retention:\
+    \ 6h\nusage_report:\n  reporting_enabled: false\n"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: tempo
+  namespace: agentic-robot-shop
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 3Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tempo
+  namespace: agentic-robot-shop
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: tempo
+  template:
+    metadata:
+      labels:
+        app: tempo
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - name: tempo
+        image: grafana/tempo:3.0.0
+        args:
+        - -config.file=/etc/config/tempo.yaml
+        - -target=all
+        ports:
+        - containerPort: 3200
+        - containerPort: 4317
+        - containerPort: 4318
+        resources:
+          requests:
+            cpu: 50m
+            memory: 256Mi
+          limits:
+            memory: 1Gi
+        volumeMounts:
+        - name: config
+          mountPath: /etc/config
+          readOnly: true
+        - name: data
+          mountPath: /data/tempo
+        - name: work
+          mountPath: /var/tempo
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 3200
+          initialDelaySeconds: 10
+      volumes:
+      - name: config
+        configMap:
+          name: tempo
+      - name: data
+        persistentVolumeClaim:
+          claimName: tempo
+      - name: work
+        emptyDir: {}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        fsGroup: 10001
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tempo
+  namespace: agentic-robot-shop
+spec:
+  selector:
+    app: tempo
+  ports:
+  - name: http
+    port: 3200
+    targetPort: 3200
+  - name: otlp-grpc
+    port: 4317
+    targetPort: 4317
+  - name: otlp-http
+    port: 4318
+    targetPort: 4318
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: otel-collector
+  namespace: agentic-robot-shop
+data:
+  collector.yaml: "receivers:\n  otlp:\n    protocols:\n      grpc:\n        endpoint:\
+    \ 0.0.0.0:4317\n      http:\n        endpoint: 0.0.0.0:4318\nprocessors:\n  memory_limiter:\n\
+    \    check_interval: 1s\n    limit_mib: 256\n    spike_limit_mib: 64\n  batch:\
+    \ {}\nconnectors:\n  spanmetrics:\n    histogram:\n      explicit:\n        buckets:\
+    \ [1ms, 5ms, 10ms, 50ms, 100ms, 500ms, 1s, 5s, 10s]\n    dimensions:\n      -\
+    \ name: service.namespace\n      - name: gen_ai.operation.name\n      - name:\
+    \ gen_ai.tool.name\n      - name: mcp.method.name\nexporters:\n  otlphttp/tempo:\n\
+    \    endpoint: http://tempo:4318\n  prometheus:\n    endpoint: 0.0.0.0:8889\n\
+    service:\n  pipelines:\n    traces:\n      receivers: [otlp]\n      processors:\
+    \ [memory_limiter, batch]\n      exporters: [otlphttp/tempo, spanmetrics]\n  \
+    \  metrics:\n      receivers: [spanmetrics]\n      exporters: [prometheus]\n"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: otel-collector
+  namespace: agentic-robot-shop
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: otel-collector
+  template:
+    metadata:
+      labels:
+        app: otel-collector
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - name: otel-collector
+        image: otel/opentelemetry-collector-contrib:0.161.0
+        args:
+        - --config=/etc/config/collector.yaml
+        ports:
+        - containerPort: 4317
+        - containerPort: 4318
+        - containerPort: 8889
+        resources:
+          requests:
+            cpu: 50m
+            memory: 256Mi
+          limits:
+            memory: 512Mi
+        volumeMounts:
+        - name: config
+          mountPath: /etc/config
+          readOnly: true
+      volumes:
+      - name: config
+        configMap:
+          name: otel-collector
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: otel-collector
+  namespace: agentic-robot-shop
+spec:
+  selector:
+    app: otel-collector
+  ports:
+  - name: otlp-grpc
+    port: 4317
+    targetPort: 4317
+  - name: otlp-http
+    port: 4318
+    targetPort: 4318
+  - name: metrics
+    port: 8889
+    targetPort: 8889

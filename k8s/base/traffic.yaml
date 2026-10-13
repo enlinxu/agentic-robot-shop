@@ -1,0 +1,26 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: synthetic-shopping-traffic
+  namespace: agentic-robot-shop
+spec:
+  schedule: '* * * * *'
+  suspend: true
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 110
+      template:
+        spec:
+          containers:
+          - name: traffic
+            image: ghcr.io/enlinxu/agentic-robot-shop/agent:v0.1.0
+            command:
+            - python
+            - -c
+            - import urllib.request; urllib.request.urlopen(urllib.request.Request("http://shopping-load:8080/session",data=b'{"profile":"shop"}',headers={"Content-Type":"application/json"}),timeout=100).read()
+          restartPolicy: Never
+          automountServiceAccountToken: false

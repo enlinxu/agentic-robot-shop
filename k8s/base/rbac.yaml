@@ -1,0 +1,43 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sre-baseline
+  namespace: agentic-robot-shop
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: sre-baseline
+  namespace: agentic-robot-shop
+rules:
+- apiGroups:
+  - ''
+  resources:
+  - pods
+  - pods/log
+  - events
+  - endpoints
+  verbs:
+  - get
+  - list
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - get
+  - list
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: sre-baseline
+  namespace: agentic-robot-shop
+subjects:
+- kind: ServiceAccount
+  name: sre-baseline
+  namespace: agentic-robot-shop
+roleRef:
+  kind: Role
+  name: sre-baseline
+  apiGroup: rbac.authorization.k8s.io

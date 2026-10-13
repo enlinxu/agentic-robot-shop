@@ -1,0 +1,36 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- namespace.yaml
+- storage.yaml
+- rbac.yaml
+- mongodb.yaml
+- redis.yaml
+- catalogue.yaml
+- cart.yaml
+- user.yaml
+- shop-mcp.yaml
+- shopping-agent.yaml
+- shopping-load.yaml
+- sre-baseline.yaml
+- web.yaml
+- traffic.yaml
+images:
+- name: ghcr.io/enlinxu/agentic-robot-shop/agent
+  newName: ghcr.io/enlinxu/agentic-robot-shop/agent
+  newTag: v0.1.0
+- name: ghcr.io/enlinxu/agentic-robot-shop/catalogue
+  newName: ghcr.io/enlinxu/agentic-robot-shop/catalogue
+  newTag: v0.1.0
+- name: ghcr.io/enlinxu/agentic-robot-shop/cart
+  newName: ghcr.io/enlinxu/agentic-robot-shop/cart
+  newTag: v0.1.0
+- name: ghcr.io/enlinxu/agentic-robot-shop/user
+  newName: ghcr.io/enlinxu/agentic-robot-shop/user
+  newTag: v0.1.0
+- name: ghcr.io/enlinxu/agentic-robot-shop/mongodb
+  newName: ghcr.io/enlinxu/agentic-robot-shop/mongodb
+  newTag: v0.1.0
+- name: ghcr.io/enlinxu/agentic-robot-shop/web
+  newName: ghcr.io/enlinxu/agentic-robot-shop/web
+  newTag: v0.1.0

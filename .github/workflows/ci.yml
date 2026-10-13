@@ -15,3 +15,6 @@ jobs:
       - run: node test_trace_view.js
       - run: python3 deploy.py render --namespace portable-check --registry example.com/test > rendered.json
       - run: python3 observability/render.py --namespace portable-check > rendered-observability.json
+      - run: kubectl kustomize k8s > /tmp/base.yaml
+      - run: kubectl kustomize k8s/overlays/paid > /tmp/paid.yaml
+      - run: kubectl kustomize k8s/observability > /tmp/observability.yaml
