@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+.venv/
+.env
+evidence/
+*-evidence.json
+chaos-*.json
+rendered*.json
+evidence.json
+sre-live-verification.json
+task_plan.md
+findings.md
+progress.md
+native-*.json
+live-*.json
+cpu-*.json

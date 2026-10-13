@@ -1,0 +1,11 @@
+.git
+__pycache__
+*.pyc
+.venv
+vendor
+assets
+docs
+observability
+evidence
+*.json
+*.md

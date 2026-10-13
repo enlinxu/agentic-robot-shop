@@ -1,0 +1,18 @@
+# Optional kube-prometheus-stack 91.9.0; install into the application namespace.
+fullnameOverride: monitoring
+grafana:
+  fullnameOverride: grafana
+  additionalDataSources:
+    - name: Tempo
+      type: tempo
+      access: proxy
+      url: http://tempo:3200
+prometheus:
+  prometheusSpec:
+    additionalScrapeConfigs:
+      - job_name: robot-shop-spanmetrics
+        static_configs:
+          - targets: [otel-collector:8889]
+      - job_name: robot-shop-cart
+        static_configs:
+          - targets: [cart:8080]

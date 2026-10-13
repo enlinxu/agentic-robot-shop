@@ -1,0 +1,10 @@
+Agentic Robot Shop
+
+Includes modified Apache-2.0 source and assets from Instana / Stan’s Robot Shop:
+https://github.com/instana/robot-shop
+Pinned upstream revision: 55292e2199f2fb00a165b1f7d3045fe7f8922038
+
+Modifications include standard OpenTelemetry instrumentation, modern container
+bases, shopping assistant and MCP integration, synthetic traffic/failure tools,
+raw-observability AI SRE and portable Kubernetes assets. This is an independent
+extension, not an official upstream release. Upstream license is preserved.

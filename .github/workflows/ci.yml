@@ -1,0 +1,17 @@
+name: Tests
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: docker build -t robot-shop-tests .
+      - run: docker run --rm -v "$PWD:/app:ro" robot-shop-tests python -m unittest discover -s /app -p 'test_*.py'
+      - run: node test_trace_view.js
+      - run: python3 deploy.py render --namespace portable-check --registry example.com/test > rendered.json
+      - run: python3 observability/render.py --namespace portable-check > rendered-observability.json
