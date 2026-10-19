@@ -31,6 +31,25 @@ class MCPPeerProcessor(SpanProcessor):
                 span.set_attribute('server.port', peer[1])
 
 
+SYNTHETIC_MODEL_HOST = os.getenv('SYNTHETIC_MODEL_HOST', 'generativelanguage.googleapis.com')
+
+
+class SyntheticModelPeerProcessor(SpanProcessor):
+    """Give the in-process simulated model a destination address, like a real model endpoint has.
+
+    Registered only for the provider-free shopping-load process, whose model calls are all simulated
+    (pydantic-ai FunctionModel). The address and model name (SYNTHETIC_MODEL_HOST / SYNTHETIC_MODEL_NAME) only label the
+    simulated calls so the topology shows a model endpoint; no request is ever sent to it. Set SYNTHETIC_MODEL_HOST to empty to turn this off.
+    """
+    def on_start(self, span, parent_context=None):
+        if (SYNTHETIC_MODEL_HOST and span.kind == trace.SpanKind.CLIENT
+                and span.instrumentation_scope.name == 'pydantic-ai'
+                and span.name.startswith('chat ')
+                and not span.attributes.get('server.address')):
+            span.set_attribute('server.address', SYNTHETIC_MODEL_HOST)
+            span.set_attribute('server.port', 443)
+
+
 def mcp_peer_callback(url):
     parsed = urlsplit(url)
     if parsed.scheme not in ('http', 'https') or not parsed.hostname:
@@ -66,6 +85,8 @@ class EvidenceExporter(SpanExporter):
 def setup(name):
     provider = TracerProvider(resource=Resource.create({'service.name': name, 'service.namespace': os.getenv('SHOP_NAMESPACE', 'agentic-robot-shop'), 'k8s.namespace.name': os.getenv('SHOP_NAMESPACE', 'agentic-robot-shop'), 'k8s.cluster.name': os.getenv('CLUSTER_NAME', 'demo'), 'k8s.pod.name': os.getenv('POD_NAME', ''), 'k8s.pod.uid': os.getenv('POD_UID', '')}))
     provider.add_span_processor(MCPPeerProcessor())
+    if name == 'shopping-load':
+        provider.add_span_processor(SyntheticModelPeerProcessor())
     provider.add_span_processor(SimpleSpanProcessor(EvidenceExporter()))
     endpoint=os.getenv('OTEL_EXPORTER_OTLP_ENDPOINT')
     if endpoint:

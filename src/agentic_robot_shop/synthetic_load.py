@@ -60,7 +60,7 @@ async def run_session(index,profile='shop'):
     start=time.monotonic()
     with trace.get_tracer('robot-shop.load').start_as_current_span('synthetic_shopping_session',attributes={'test.synthetic':True}) as span:
         toolset=MCPToolset('http://shop-mcp:8080/mcp',process_tool_call=mcp_peer_callback('http://shop-mcp:8080/mcp'),tool_error_behavior='retry' if profile=='retry_add' else 'error',max_retries=1 if profile=='retry_add' else 0,read_timeout=15)
-        agent=Agent(FunctionModel(controller or policy(cart_id,budget,profile),model_name='synthetic-'+profile+'-model'),name='synthetic-shopping-agent',toolsets=[toolset],retries=0)
+        agent=Agent(FunctionModel(controller or policy(cart_id,budget,profile),model_name=os.getenv('SYNTHETIC_MODEL_NAME','gemini-2.5-flash-lite')),name='synthetic-shopping-agent',toolsets=[toolset],retries=0)
         try:
             result=await asyncio.wait_for(agent.run('Synthetic workload: inspect options, add one within budget, verify cart.',usage_limits=UsageLimits(request_limit=6,tool_calls_limit=8)),timeout=90)
             return {'cart_id':cart_id,'profile':profile,'budget':budget,'synthetic_model':True,'provider_calls':0,'ok':True,'duration_seconds':round(time.monotonic()-start,4),'model_steps':result.usage.requests,'tool_calls':result.usage.tool_calls,'trace_id':format(span.get_span_context().trace_id,'032x')}
