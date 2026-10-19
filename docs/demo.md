@@ -29,6 +29,7 @@ export SHOP_NAMESPACE=agentic-robot-shop
 | Concurrent lost updates | `python3 scripts/chaos.py concurrent_cart` | Successful acknowledgements versus persisted quantity; ordinary error metrics can miss this defect. |
 | Redis write refusal | `python3 scripts/redis_oom.py` | Actual noeviction OOM, writes failing while reads still work. |
 | Database unavailable despite healthy app probe | `python3 scripts/mongo_outage.py` | Catalogue health reports OK while the data path fails; measure recovery with a real journey. |
+| Unhandled server exception | `python3 scripts/manage.py unhandled_exception`, then `/lab`; restore `python3 scripts/manage.py healthy` | shop-mcp writes a real `RuntimeError` traceback to stderr and answers every request with HTTP 500, so the server span itself fails and the log line is searchable. |
 | MCP pod replaced during a write | `python3 scripts/mcp_restart.py` | Pod UID changes, transport failure and later cart commit. |
 | Admission waiting under slow tools | `python3 scripts/queue_pressure.py` | HTTP-to-agent start gap on an eight-session executor, plus actual timeouts. |
 | Execution limit | `python3 scripts/native_loop_verify.py` or lab loop card | Six successful product calls then actual SDK UsageLimitExceeded; simulated repeated decisions are not evidence of LLM thrashing. |
@@ -40,6 +41,26 @@ evidence JSON ignored by Git. Run sequentially. The harnesses restore snapshots
 in `finally`, but process kill, failed cluster access or failed rollout can prevent
 recovery; inspect replicas, environment, resources and Redis controls afterward.
 Explicit MCP control modes remain active until you restore `healthy`.
+
+## Sustained incidents for a root-cause demo
+
+`scripts/demo_faults.py` runs one fault with provider-free sessions flowing and restores `healthy` when it
+ends, including on Ctrl-C or SIGTERM:
+
+```sh
+export KUBE_CONTEXT=YOUR_CONTEXT
+python3 scripts/demo_faults.py contract_violation                 # about 10 minutes, one session every 30 s
+python3 scripts/demo_faults.py unhandled_exception --minutes 15   # one session per second
+```
+
+| Scenario | What happens | Typical time to a root cause in a causal-reasoning tool |
+| --- | --- | --- |
+| `contract_violation` | `search_products` returns the price as text; the MCP client rejects it after the server reported success | 2 to 4 minutes |
+| `unhandled_exception` | shop-mcp raises and logs a real traceback and answers HTTP 500 | 7 minutes for an HTTP-path diagnosis, 10 to 13 for the exception itself (log scanning is periodic) |
+
+Run one scenario at a time. Wait until the previous incident has cleared (about 14 minutes after the last
+failing session) before starting the next, or the two will be diagnosed as one. If a run is killed hard,
+check `http://shop-mcp:8080/healthz` from inside the cluster and run `python3 scripts/manage.py healthy`.
 
 ## Raw-data AI SRE baseline
 

@@ -36,6 +36,18 @@ class ToolTests(unittest.IsolatedAsyncioTestCase):
                 recovered=await client.call_tool('search_products',{'max_price':100})
                 self.assertEqual(recovered.structured_content['products'][0]['price'],67)
 
+    async def test_unhandled_exception_mode_fails_requests_but_keeps_control_reachable(self):
+        import contextlib, io
+        from starlette.testclient import TestClient
+        client=TestClient(shop_mcp.app)
+        self.assertEqual(client.post('/control',json={'mode':'unhandled_exception'}).status_code,200)
+        stderr=io.StringIO()
+        with contextlib.redirect_stderr(stderr):
+            self.assertEqual(client.post('/mcp',json={}).status_code,500)
+        self.assertIn('RuntimeError: unhandled exception in shop-mcp request /mcp',stderr.getvalue())
+        self.assertEqual(client.post('/control',json={'mode':'healthy'}).status_code,200)
+        self.assertEqual(client.get('/healthz').json()['mode'],'healthy')
+
     async def test_cart_backend_called(self):
         backend=AsyncMock(return_value={'items':[{'sku':'STAN-1','qty':1}],'total':67})
         with patch.object(shop_mcp,'request_json',backend):

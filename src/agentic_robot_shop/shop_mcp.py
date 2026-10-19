@@ -1,6 +1,8 @@
 """Real MCP facade over upstream Robot Shop HTTP services."""
 import asyncio
 import os
+import sys
+import traceback
 from urllib.parse import quote
 import httpx
 from mcp import types
@@ -14,6 +16,7 @@ from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 setup('shop-mcp')
 HTTPXClientInstrumentor().instrument()
 MODE = 'healthy'
+MODES = ('healthy','schema_mismatch','missing_output','catalogue_timeout','unhandled_exception')
 CATALOGUE = os.getenv('CATALOGUE_URL', 'http://catalogue:8080')
 CART = os.getenv('CART_URL', 'http://cart:8080')
 PRODUCT = {'type':'object','properties': {'sku':{'type':'string'},'name':{'type':'string'},'price':{'type':'number'},'instock':{'type':'integer'},'description':{'type':'string'}},'required':['sku','name','price','instock'],'additionalProperties':False}
@@ -34,7 +37,17 @@ async def request_json(url):
 def product(p):
     return {k:p[k] for k in ('sku','name','price','instock','description') if k in p}
 
+def raise_unhandled(where):
+    """Raise a real exception and print its traceback, as an uncaught server bug would."""
+    try:
+        raise RuntimeError('unhandled exception in shop-mcp '+where)
+    except RuntimeError:
+        traceback.print_exc(file=sys.stderr)
+        sys.stderr.flush()
+        raise
+
 async def execute(name, args):
+    if MODE == 'unhandled_exception':raise_unhandled('tool '+name)
     if MODE == 'catalogue_timeout' and name in ('search_products','get_product'):
         await asyncio.sleep(12)
     if name=='search_products':
@@ -74,12 +87,30 @@ async def health(request):return JSONResponse({'status':'ok','mode':MODE})
 async def control(request):
     global MODE
     value=(await request.json()).get('mode')
-    if value not in ('healthy','schema_mismatch','missing_output','catalogue_timeout'):return JSONResponse({'error':'invalid mode'},status_code=400)
+    if value not in MODES:return JSONResponse({'error':'invalid mode'},status_code=400)
     MODE=value
     return JSONResponse({'mode':MODE})
 
 server=Server('robot-shop-tools',version='1.0.0',on_list_tools=list_tools,on_call_tool=call_tool)
 app=server.streamable_http_app(stateless_http=True,json_response=True,host='0.0.0.0',custom_starlette_routes=[Route('/traces/{trace_id}',trace_evidence),Route('/healthz',health),Route('/control',control,methods=['POST'])])
+
+class UnhandledExceptionMiddleware:
+    """While MODE is unhandled_exception, answer every POST except /control with a real traceback and HTTP 500.
+
+    The MCP SDK catches tool exceptions and answers HTTP 200, so an error in a tool never shows as a failed
+    server request. Failing the request here, inside the OpenTelemetry middleware below, makes the 500 the
+    server span's status. /control stays reachable so the mode can always be switched off."""
+    def __init__(self,app):self.app=app
+    async def __call__(self,scope,receive,send):
+        path=scope.get('path','')
+        if MODE=='unhandled_exception' and scope.get('type')=='http' and scope.get('method')=='POST' and path!='/control':
+            try:raise_unhandled('request '+path)
+            except RuntimeError:
+                await JSONResponse({'error':'unhandled exception'},status_code=500)(scope,receive,send)
+                return
+        await self.app(scope,receive,send)
+
+app=UnhandledExceptionMiddleware(app)
 
 # Standard ASGI HTTP instrumentation supplies transport spans around SDK spans.
 from opentelemetry.instrumentation.asgi import OpenTelemetryMiddleware

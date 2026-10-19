@@ -18,8 +18,11 @@ def kube(*args, doc=None):
                           text=True, capture_output=True, check=True).stdout
 
 
+MODES = ['healthy', 'schema_mismatch', 'missing_output', 'catalogue_timeout', 'unhandled_exception']
+
+
 def mode(value):
-    if value not in ('healthy', 'schema_mismatch', 'missing_output', 'catalogue_timeout'):
+    if value not in MODES:
         raise ValueError('Unknown fault mode')
     source = 'import urllib.request,json; print(urllib.request.urlopen(urllib.request.Request("http://shop-mcp:8080/control",data=json.dumps({"mode":' + repr(value) + '}).encode(),headers={"Content-Type":"application/json"})).read().decode())'
     print(kube('-n', NS, 'exec', 'deployment/shopping-load', '--', 'python', '-c', source))
@@ -27,5 +30,5 @@ def mode(value):
 
 if __name__ == '__main__':
     p = argparse.ArgumentParser()
-    p.add_argument('mode', choices=['healthy', 'schema_mismatch', 'missing_output', 'catalogue_timeout'])
+    p.add_argument('mode', choices=MODES)
     mode(p.parse_args().mode)
